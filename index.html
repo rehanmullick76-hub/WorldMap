@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Modern Explorer | Interactive Map</title>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Font Awesome 6 (free icons) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Google Fonts: Inter for modern UI -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0f1e;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Main container */
+        .map-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Modern glass-panel UI */
+        .search-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(18, 22, 35, 0.92);
+            backdrop-filter: blur(16px);
+            border-radius: 60px;
+            padding: 8px 8px 8px 24px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.2s ease;
+        }
+
+        .search-box {
+            flex: 4;
+            min-width: 180px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.45);
+            border-radius: 48px;
+            padding: 6px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .search-box i {
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+
+        #addressInput {
+            background: transparent;
+            border: none;
+            padding: 12px 0;
+            font-size: 0.95rem;
+            color: white;
+            width: 100%;
+            outline: none;
+            font-weight: 500;
+            letter-spacing: -0.2px;
+        }
+
+        #addressInput::placeholder {
+            color: rgba(255, 255, 255, 0.55);
+            font-weight: 400;
+        }
+
+        .search-btn, .locate-btn, .theme-toggle {
+            background: rgba(255, 255, 255, 0.12);
+            border: none;
+            border-radius: 44px;
+            padding: 10px 22px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            backdrop-filter: blur(4px);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .search-btn {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .search-btn:hover {
+            background: #2563eb;
+            transform: scale(0.96);
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+        }
+
+        .locate-btn {
+            background: rgba(30, 35, 48, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .locate-btn:hover {
+            background: #1e2a3e;
+            transform: scale(0.96);
+        }
+
+        .theme-toggle {
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .theme-toggle:hover {
+            background: #1e293b;
+            transform: scale(0.96);
+        }
+
+        /* responsive design */
+        @media (max-width: 680px) {
+            .search-panel {
+                flex-wrap: wrap;
+                border-radius: 28px;
+                padding: 12px;
+                top: 12px;
+                left: 12px;
+                right: 12px;
+                gap: 10px;
+            }
+            .search-box {
+                width: 100%;
+                flex: auto;
+                padding: 4px 16px;
+            }
+            .search-btn, .locate-btn, .theme-toggle {
+                padding: 8px 16px;
+                font-size: 0.8rem;
+            }
+            .search-btn span, .locate-btn span, .theme-toggle span {
+                display: inline;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .search-btn span, .locate-btn span, .theme-toggle span {
+                display: none;
+            }
+            .search-btn i, .locate-btn i, .theme-toggle i {
+                margin: 0;
+            }
+            .search-btn, .locate-btn, .theme-toggle {
+                padding: 10px 14px;
+            }
+        }
+
+        /* attribution styling */
+        .leaflet-control-attribution {
+            background: rgba(0, 0, 0, 0.65);
+            color: #ccc;
+            font-size: 9px;
+            border-radius: 16px;
+            padding: 2px 8px;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Custom marker with hover effect + smooth animation */
+        .custom-marker {
+            filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.3));
+            transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.2);
+            cursor: pointer;
+        }
+        .custom-marker:hover {
+            transform: scale(1.25);
+            filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.4));
+            z-index: 1000;
+        }
+
+        /* smooth popup styling */
+        .leaflet-popup-content {
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            min-width: 140px;
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 16px;
+            background: rgba(20, 24, 35, 0.96);
+            backdrop-filter: blur(8px);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+        }
+        .leaflet-popup-tip {
+            background: rgba(20, 24, 35, 0.96);
+        }
+
+        /* map tile transition for theme toggle smoothness */
+        .leaflet-container {
+            transition: filter 0.25s ease;
+        }
+    </style>
+</head>
+<body>
+<div class="map-wrapper">
+    <div id="map"></div>
+    <div class="search-panel">
+        <div class="search-box">
+            <i class="fas fa-map-pin"></i>
+            <input type="text" id="addressInput" placeholder="Search city, landmark, or address..." autocomplete="off">
+        </div>
+        <button class="search-btn" id="searchBtn"><i class="fas fa-search"></i> <span>Search</span></button>
+        <button class="locate-btn" id="locateBtn"><i class="fas fa-location-dot"></i> <span>My Location</span></button>
+        <button class="theme-toggle" id="themeToggle"><i class="fas fa-moon"></i> <span>Dark Map</span></button>
+    </div>
+</div>
+
+<script>
+    // ============================================================
+    // SECTION 1: MAP INITIALIZATION (Leaflet + OpenStreetMap)
+    // ============================================================
+    // Create map centered on a global view (New York City approximate)
+    let map = L.map('map').setView([40.7128, -74.0060], 4);
+
+    // Standard OpenStreetMap tile layer (light)
+    const osmLight = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+        minZoom: 2
+    }).addTo(map);
+
+    // Dark themed tile layer (CartoDB Dark Matter) for theme toggle
+    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19,
+        minZoom: 2
+    });
+
+    let activeTile = osmLight;
+    let isDarkMode = false;
+
+    // ============================================================
+    // SECTION 2: MARKER MANAGEMENT (Multiple markers, hover effects)
+    // ============================================================
+    let allMarkers = [];          // array to store all marker objects
+    let userLocationMarker = null;
+
+    // Custom icon factory: clean modern pin with optional user special
+    function createDefaultIcon(color = '#3b82f6') {
+        return L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background-color: ${color}; width: 26px; height: 26px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center;"><i class="fas fa-map-marker-alt" style="font-size: 10px; color: white; text-shadow: 0 0 2px black;"></i></div>`,
+            iconSize: [26, 26],
+            popupAnchor: [0, -13]
+        });
+    }
+
+    const userSpecialIcon = L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="background: linear-gradient(135deg, #ef4444, #dc2626); width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 0 3px rgba(59,130,246,0.5), 0 4px 12px black; display: flex; align-items: center; justify-content: center;"><i class="fas fa-user" style="font-size: 14px; color: white;"></i></div>`,
+        iconSize: [32, 32],
+        popupAnchor: [0, -16]
+    });
+
+    // Add marker to map and store reference
+    function addMarkerToMap(lat, lng, popupHtml, isUserMarker = false) {
+        const icon = isUserMarker ? userSpecialIcon : createDefaultIcon('#3b82f6');
+        const marker = L.marker([lat, lng], { icon: icon }).addTo(map);
+        marker.bindPopup(popupHtml, { closeButton: true, autoPan: true, maxWidth: 220 });
+        
+        // Optional: additional hover effect (open popup preview on hover? but we keep click)
+        // But we already have CSS hover scale effect
+        marker.on('mouseover', function(e) {
+            // just for subtle interactive feedback (no forced popup)
+            if (!marker.isPopupOpen()) {
+                marker.openTooltip?.(); // not necessary, but we can keep clean
+            }
+        });
+        allMarkers.push(marker);
+        return marker;
+    }
+
+    // Remove all markers except the user location marker (if needed)
+    function clearNonUserMarkers() {
+        allMarkers.forEach(marker => {
+            if (marker !== userLocationMarker) {
+                map.removeLayer(marker);
+            }
+        });
+        allMarkers = allMarkers.filter(marker => marker === userLocationMarker);
+    }
+
+    // ============================================================
+    // SECTION 3: USER GEOLOCATION (Browser Geolocation API)
+    // ============================================================
+    function locateUser() {
+        if (!navigator.geolocation) {
+            alert("Geolocation is not supported by your browser. Please use a modern browser.");
+            return;
+        }
+        const locateBtn = document.getElementById('locateBtn');
+        const originalHTML = locateBtn.innerHTML;
+        locateBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> <span>Locating...</span>';
+        locateBtn.disabled = true;
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                // Remove previous user marker if exists
+                if (userLocationMarker) {
+                    map.removeLayer(userLocationMarker);
+                    allMarkers = allMarkers.filter(m => m !== userLocationMarker);
+                }
+                // Add fresh user marker
+                const popupContent = `<b>📍 You are here!</b><br>Lat: ${latitude.toFixed(5)}<br>Lng: ${longitude.toFixed(5)}`;
+                userLocationMarker = addMarkerToMap(latitude, longitude, popupContent, true);
+                // Smooth fly animation to user location with zoom 15
+                map.flyTo([latitude, longitude], 15, { duration: 1.2, easeLinearity: 0.5 });
+                // Open popup after slight delay
+                setTimeout(() => {
+                    userLocationMarker.openPopup();
+                }, 300);
+                locateBtn.innerHTML = originalHTML;
+                locateBtn.disabled = false;
+            },
+            (error) => {
+                console.warn("Geolocation error:", error);
+                let errorMsg = "Could not get your location. ";
+                switch(error.code) {
+                    case error.PERMISSION_DENIED: errorMsg += "Permission denied. Allow location access."; break;
+                    case error.POSITION_UNAVAILABLE: errorMsg += "Position unavailable."; break;
+                    case error.TIMEOUT: errorMsg += "Request timed out."; break;
+                    default: errorMsg += "Unknown error.";
+                }
+                alert(errorMsg);
+                locateBtn.innerHTML = originalHTML;
+                locateBtn.disabled = false;
+            },
+            { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+        );
+    }
+
+    // ============================================================
+    // SECTION 4: SEARCH BY CITY/ADDRESS (NO API KEY NEEDED)
+    // Using free & open-source geocoding via Nominatim (OpenStreetMap)
+    // Rate-limited but perfect for demo / personal use, no API key required.
+    // ============================================================
+    // Nominatim usage policy: identify app with User-Agent, limit requests, respect delay.
+    // For a frontend-only app, we'll add a small delay to be respectful.
+    let searchInProgress = false;
+
+    async function searchAddress(query) {
+        if (!query.trim()) {
+            alert("Please enter a city, address, or landmark.");
+            return null;
+        }
+        if (searchInProgress) {
+            alert("Search is already in progress, please wait...");
+            return null;
+        }
+        searchInProgress = true;
+        const searchBtn = document.getElementById('searchBtn');
+        const originalBtnHtml = searchBtn.innerHTML;
+        searchBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> <span>Searching...</span>';
+        searchBtn.disabled = true;
+
+        try {
+            // Using Nominatim geocoding (free, no key, but requires proper headers)
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&addressdetails=1&accept-language=en`;
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'application/json',
+                    'User-Agent': 'ModernMapExplorer/1.0 (Educational Demo)'
+                }
+            });
+            const data = await response.json();
+            if (!data || data.length === 0) {
+                alert(`Location not found: "${query}". Please try a different city or address.`);
+                return null;
+            }
+            const result = data[0];
+            const lat = parseFloat(result.lat);
+            const lon = parseFloat(result.lon);
+            const displayName = result.display_name.split(',')[0] || query;
+            return { lat, lng: lon, name: displayName, fullName: result.display_name };
+        } catch (error) {
+            console.error("Geocoding error:", error);
+            alert("Network error while searching. Please try again later.");
+            return null;
+        } finally {
+            searchInProgress = false;
+            searchBtn.innerHTML = originalBtnHtml;
+            searchBtn.disabled = false;
+        }
+    }
+
+    async function handleSearchSubmit() {
+        const inputField = document.getElementById('addressInput');
+        const query = inputField.value.trim();
+        if (!query) {
+            alert("✏️ Type a city name or address first.");
+            return;
+        }
+        const location = await searchAddress(query);
+        if (location) {
+            const { lat, lng, name, fullName } = location;
+            // Create popup content with rich info
+            const popupText = `<b>📍 ${escapeHtml(name)}</b><br>${escapeHtml(fullName || query)}<br><span style="font-size: 0.75rem; opacity: 0.8;">✨ Searched location</span>`;
+            const newMarker = addMarkerToMap(lat, lng, popupText, false);
+            // Fly smoothly to searched location
+            map.flyTo([lat, lng], 14, { duration: 1.2, easeLinearity: 0.4 });
+            // Auto open popup after fly animation completes
+            setTimeout(() => {
+                newMarker.openPopup();
+            }, 400);
+            // Optional: keep all markers as per requirement (multiple markers support)
+        }
+    }
+
+    // Helper to escape HTML special chars
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // ============================================================
+    // SECTION 5: DARK / LIGHT THEME TOGGLE (Map Background)
+    // ============================================================
+    function toggleMapTheme() {
+        if (isDarkMode) {
+            // Switch to light mode
+            map.removeLayer(activeTile);
+            activeTile = osmLight;
+            osmLight.addTo(map);
+            isDarkMode = false;
+            const toggleBtn = document.getElementById('themeToggle');
+            toggleBtn.innerHTML = '<i class="fas fa-moon"></i> <span>Dark Map</span>';
+        } else {
+            // Switch to dark mode
+            map.removeLayer(activeTile);
+            activeTile = darkLayer;
+            darkLayer.addTo(map);
+            isDarkMode = true;
+            const toggleBtn = document.getElementById('themeToggle');
+            toggleBtn.innerHTML = '<i class="fas fa-sun"></i> <span>Light Map</span>';
+        }
+    }
+
+    // ============================================================
+    // SECTION 6: EVENT LISTENERS & DEMO MARKER (optional showcase)
+    // ============================================================
+    // Setup UI event handlers
+    document.getElementById('searchBtn').addEventListener('click', handleSearchSubmit);
+    document.getElementById('locateBtn').addEventListener('click', locateUser);
+    document.getElementById('themeToggle').addEventListener('click', toggleMapTheme);
+    // Allow enter key on search input
+    const addressInput = document.getElementById('addressInput');
+    addressInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleSearchSubmit();
+        }
+    });
+
+    // For demonstration: add a couple of sample markers to show "multiple markers" functionality
+    // and make map look alive (optional but shows support). These markers are static examples.
+    // They can be removed by user if needed, but they highlight multi-marker feature.
+    setTimeout(() => {
+        // Add two interesting city markers to showcase multiple markers (London & Tokyo)
+        const londonMarker = addMarkerToMap(51.5074, -0.1278, 
+            `<b>🇬🇧 London, UK</b><br>Iconic city on the Thames.<br><i>Click to explore!</i>`, false);
+        const tokyoMarker = addMarkerToMap(35.6895, 139.6917, 
+            `<b>🗼 Tokyo, Japan</b><br>Vibrant metropolis blending tradition & future.`, false);
+        // Add a third marker (Sydney) for richness
+        const sydneyMarker = addMarkerToMap(-33.8688, 151.2093, 
+            `<b>🐨 Sydney, Australia</b><br>Home to the Opera House & Harbour Bridge.`, false);
+        
+        // small note: these markers remain, showing support for multiple markers.
+        // users can also add more via search.
+    }, 800); // delay until map fully ready
+
+    // Optional: smooth map animations: leaflet flyTo already provides beautiful easing.
+    // Additional touch: add some CSS for marker hover effect already present.
+    // For cleaner experience: automatically handle window resize
+    window.addEventListener('resize', () => {
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+    });
+
+    // small info to console for guidance
+    console.log("🗺️ Modern Map Website Ready | Features: Geolocation, Search (Nominatim), Multiple Markers, Dark/Light Toggle, Hover Effects");
+</script>
+</body>
+</html>
