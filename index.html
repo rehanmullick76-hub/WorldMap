@@ -366,7 +366,7 @@
                 locateBtn.innerHTML = originalHTML;
                 locateBtn.disabled = false;
             },
-            { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+            { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 }
         );
     }
 
@@ -522,6 +522,20 @@
             map.invalidateSize();
         }, 100);
     });
+window.addEventListener('load', () => {
+    if ("geolocation" in navigator) {
+        navigator.permissions?.query({ name: "geolocation" }).then(result => {
+            if (result.state === "granted") {
+                locateUser(); // direct detect
+            } else if (result.state === "prompt") {
+                // optional: auto ask
+                locateUser();
+            } else {
+                console.log("Location permission denied");
+            }
+        });
+    }
+});
 
     // small info to console for guidance
     console.log("🗺️ Modern Map Website Ready | Features: Geolocation, Search (Nominatim), Multiple Markers, Dark/Light Toggle, Hover Effects");
